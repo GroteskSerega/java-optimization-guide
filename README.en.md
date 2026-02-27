@@ -1,5 +1,7 @@
 # Java 21+ Extreme Optimization: 10+1 Golden Rules
 
+![](images/image_1.jpg)
+
 [![EN](https://img.shields.io)](README.en.md)
 [![RU](https://img.shields.io)](README.md)
 
