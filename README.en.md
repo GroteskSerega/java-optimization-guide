@@ -1,5 +1,7 @@
 # Java 21+ Extreme Optimization: 10+1 Golden Rules
 
+[🚀 **Case Study:** Java Lean & Fast: 38 MiB RAM and 1.2s Startup — Proof of concept and detailed benchmarks](https://github.com/GroteskSerega/java-on-diet-jvm-vs-graalvm)
+
 ![](images/image_1.jpg)
 
 [![EN](https://img.shields.io)](README.en.md)
