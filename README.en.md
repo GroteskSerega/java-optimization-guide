@@ -7,21 +7,21 @@
 
 > **An Engineer's Manifesto: Making JVMs Fly and Native Images Lean.**
 
-# TOP 10+1 "Golden Rules for Java 21+ Optimization: Making JIT Sing and GraalVM Soar"
+# Making JIT Sing and GraalVM Soar
 
-This repository contains code examples and a deep dive into 11 golden rules of optimization for Java 21+, Spring Boot 3, and GraalVM Native Image.
+This guide is a deep dive into 11 **Golden Rules of Optimization** for Java 21+, Spring Boot 3, and GraalVM Native Image.
 
-Why does your Java system stutter where it should soar? We're used to trusting JVM "magic", but in the era of Java 21 and Native Image, the rules of the game have shifted. From micro-optimizing bytecode to the radical paradigm shift of Scoped Values - we're breaking down 11 "golden rules" that force the JIT to sing and your binaries to launch in milliseconds. No fluff, just hardcore engineering, CPU registers, and the "voices" of compilers embedded in your code.
+Why does your Java system stutter where it should soar? We're used to trusting JVM "magic", but in the era of Java 21 and Native Image, the rules of the game have shifted. From micro-optimizing bytecode to the radical paradigm shift of Scoped Values — we are breaking down the levers that force the JIT to sing and your binaries to launch in milliseconds. No fluff, just hardcore engineering, CPU registers, and the "voices" of compilers embedded in your code.
 
-While working with code, I’ve often felt that surge of excitement: how can I make this method even faster? Which bolt can I tighten to make the JVM not just run, but literally fly? What architectural changes will make the Native Image even more compact and the cold start even faster?
+While working with performance-critical code, I’ve often felt that surge of excitement: How can I make this method even faster? Which bolt can I tighten to make the JVM not just run, but literally fly? What architectural changes will make the Native Image even more compact and the cold start even faster?
 
-Having experienced this thrill of optimization many times, I want to share it with you. I’ve distilled my experience into a specific checklist.
+Having experienced this thrill of optimization many times, I want to share it with you. I’ve distilled my experience into a specific, battle-tested checklist.
 
 This isn’t just about code style. These are the "**10+1 Golden Rules for Java 21+ Optimization**".
 
 These are the levers that make the JIT compiler sing and GraalVM generate binaries with surgical precision.
 
-Get ready! We are starting the optimization!
+Buckle up. We're going deep.
 
 ---
 
@@ -40,9 +40,11 @@ Get ready! We are starting the optimization!
 11. [Rule #11. Scoped Values instead of ThreadLocal](#rule-11-scoped-values-instead-of-threadlocal)
 
 ## Rule #1. Records as DTOs (Immutability & Heap)
-**The Pain Point:** Standard POJOs with setters are a "black box". The compiler must stay on high alert: what if someone changes the object’s state in the middle of a method? This uncertainty hinders deep optimization and complicates object graph analysis.
-**The Golden Solution:** Use `record` for all data that simply "flows" through the system.
+**The Problem:** Traditional POJOs with setters are a "black box" for the compiler. JIT must stay on high alert: _what if a state change happens in the middle of a method?_ This uncertainty forces the compiler to be conservative, hindering deep optimizations and complicating object graph analysis.
 
+**The Golden Solution:** Use `record` for all data that simply "flows" through the system. In Java 21, records are not just syntactic sugar; they are a signal to the runtime that the data is stable.
+
+**The Code in Action:**
 ```java
 public record UserUpsertRequest (
 
@@ -78,14 +80,16 @@ public record UserUpsertRequest (
 }
 ```
 
-> **JIT’s Voice:** "Oh, a record! Finally, I see `final` fields by default. Now I know for certain that the data won’t change after instantiation. I can apply **Scalar Replacement** more aggressively -- deconstructing the object into individual variables - and inline access directly into CPU registers."
+> **The Voice of JIT:** "Finally, a `record`! I see `final` fields by default. Now I know for certain that the data won’t change after instantiation. This allows me to apply **Scalar Replacement** more aggressively — deconstructing the object into individual variables — and inlining access directly into CPU registers."
 
-> **AOT's Whisper:** "Since the structure of a record is known to me at build time, I can optimize the mapping of this data into binary code far more aggressively than for ordinary classes with their dynamic nature."
+> **The Whisper of AOT:** "Since the structure of a record is fixed and known at build time, I can optimize its binary layout far more aggressively than I ever could for dynamic POJOs. No surprises, just raw efficiency."
 
 ## Rule #2. fillInStackTrace(null) in Business Exceptions
-**The Pain Point:** We often use exceptions for flow control (e.g., `UserNotFoundException`). But creating an exception isn't just about object allocation -- it’s an expensive "journey" through the entire call stack to populate the `StackTraceElement[]` array. This process can account for up to 90% of an exception's lifecycle cost.
-**The Golden Solution:** For predictable business errors where you don't need a log filled with framework internals, override the stack trace collection. Using the specific `RuntimeException` constructor makes it even faster.
+**The Problem:** We often use exceptions for flow control (e.g., `UserNotFoundException`). However, creating a standard exception isn't just about object allocation — it’s an expensive "journey" through the entire call stack to populate the `StackTraceElement[]` array. This process can account for up to **90% of an exception's lifecycle cost**, burning CPU cycles on metadata you'll likely never read in a business log.
 
+**The Golden Solution:** For predictable business errors where you don't need a log filled with framework internals, override the stack trace collection. Using the specific `RuntimeException` constructor with `writableStackTrace = false` makes it even faster and more memory-efficient.
+
+**The Code in Action:**
 ```java
 public class EntityNotFoundException extends RuntimeException {
     public EntityNotFoundException(String message) {
@@ -101,14 +105,16 @@ public class EntityNotFoundException extends RuntimeException {
 }
 ```
 
-> **JIT’s Voice:** "Thank you! When you create a standard exception, I’m forced to drop everything and reconstruct the call chain byte by byte. It’s like pausing a movie just to count every single frame. With this rule, I simply instantiate the object and move on, maintaining peak execution momentum."
+> **The Voice of JIT:** "Thank you! When you create a standard exception, I’m forced to halt optimizations and reconstruct the call chain byte by byte. It’s like pausing a high-speed movie just to count every single frame. With this rule, I simply instantiate the object and move on, maintaining peak execution momentum."
 
-> **AOT's Whisper:** "In Native Image, every stack trace is additional meta-code I must be able to reconstruct at runtime. By removing `fillInStackTrace`, you're not just speeding up logic -- you're making my binary leaner by stripping away redundant metadata tables."
+> **The Whisper of AOT:** "In Native Image, every stack trace requires additional metadata to be reconstructible at runtime. By removing `fillInStackTrace`, you're not just speeding up logic -- you're making my binary leaner by stripping away redundant metadata that would otherwise bloat the executable."
 
 ## Rule #3. Final Everywhere (Predictability is Key)
-**The Pain Point:** Uncertainty. If a variable isn’t marked as `final`, the compiler must account for the possibility of its state changing at any moment. This bloats the state graph that needs to be analyzed during optimization, making the compiler's job much harder.
+**The Problem:** Uncertainty. If a variable isn’t marked as `final`, the compiler must account for the possibility of its state changing at any moment. This bloats the state graph that needs to be analyzed during optimization, forcing the compiler to be more conservative with register allocation and inlining.
+
 **The Golden Solution:** Make local variables, method parameters, and class fields `final` by default. Optimized code is, above all, predictable code. The fewer variables can change their state, the more aggressively the optimizers can work their magic.
 
+**The Code in Action:**
 ```java
 public Resource exportDataToCsvResource() {
     final List<Statistics> data = statisticsRepository.findAll();
@@ -131,14 +137,16 @@ public Resource exportDataToCsvResource() {
 }
 ```
 
-> **JIT’s Voice:** "When I see `final`, I perform **Constant Folding**. If I’m certain that an object reference or a primitive value won't change, I can strip redundant checks from the machine code and even pre-calculate the results of certain operations. To me, `final` isn’t a restriction -- it’s a green light: "It’s safe here, floor it!"
+> **The Voice of JIT:** "When I see `final`, I can perform **Constant Folding** and optimize `Register Allocation` more effectively. If I’m certain that a reference or a primitive value won't change, I can strip redundant checks from the machine code. To me, `final` isn’t a restriction — it’s a green light that says: It’s safe here, floor it!
 
-> **AOT's Whisper:** "For me, `final` is the foundation for **Dead Code Elimination**. If I see a constant condition, I can simply prune entire code branches that will never execute. This makes the binary smaller and the execution logic much more straightforward."
+> **The Whisper of AOT:** "For me, `final` is the foundation for **Dead Code Elimination**. If I see a constant condition, I can simply prune entire branches of code that will never execute. This results in a smaller binary and a much tighter execution path."
 
 ## Rule #4. The Death of Reflection (AOT-Friendly)
-**The Pain Point:** Reflection is a performance "black hole". JIT cannot look inside a `Method.invoke()` call ahead of time, and Native Image forces you to explicitly document every such "sneeze" in bulky JSON configurations. If you use reflection in a hot path, you are voluntarily leaving 30-50% of your potential throughput on the table.
-**The Golden Solution:** Leverage **MapStruct**, **JOOQ**, and other Annotation Processing (APT) libraries. They generate clean Java code during compilation that looks exactly as if you'd written it by hand -- with direct getter and setter calls.
+**The Problem:** Reflection is a performance "black hole". JIT cannot look inside a `Method.invoke()` call ahead of time, and Native Image forces you to explicitly document every such "sneeze" in bulky, error-prone JSON configuration files. If you use reflection in a hot path, you are voluntarily leaving **30-50% of your potential throughput** on the table.
 
+**The Golden Solution:** Leverage Annotation Processing (APT) libraries like **MapStruct**, **Lombok**, or **JOOQ**. They generate clean, standard Java code during compilation that looks exactly as if you'd written it by hand — with direct getter and setter calls that the compiler can easily optimize.
+
+**The Code in Action:**
 ```java
 @Mapper(componentModel = MappingConstants.ComponentModel.SPRING,
         unmappedTargetPolicy = ReportingPolicy.IGNORE)
@@ -165,14 +173,16 @@ public interface UserMapper {
 }
 ```
 
-> **JIT’s Voice:** "Reflection is like thick fog on a highway; I can't see what's ahead, so I slow down to a crawl and **disable** my optimizations. But MapStruct code is a straight autobahn. I see `entity.getName()` -> `dto.setName()` and I simply punch straight through that call using **inlining**."
+> **The Voice of JIT:** "Reflection is like thick fog on a highway; I can't see what's ahead, so I slow down to a crawl and **disable** my most aggressive optimizations. But MapStruct code is a straight autobahn. I see `entity.getName()` -> `dto.setName()` and I simply punch straight through that call using **inlining** and **Devirtualization**."
 
-> **AOT's Whisper:** "Reflection is my worst nightmare. To make it work in a Native Image, I have to carry around a ton of metadata, which bloats the binary. Code generation lets me prune the dead weight at build time. Less reflection means a smaller `reflect-config.json` and a lightning-fast startup."
+> **The Whisper of AOT:** "Reflection is my worst nightmare. To make it work in a Native Image, I have to carry around a mountain of metadata, which bloats the binary. Code generation lets me prune the dead weight at build time. Less reflection means a tiny `reflect-config.json` and a lightning-fast startup."
 
 ## Rule #5. Short Methods (The Inlining Threshold)
-**The Pain Point:** Gigantic, 500-line methods that try to do everything: validate, calculate, log, and save. The JIT cannot "swallow" them (inline them into one another) because they exceed bytecode size limits. Consequently, every call to such a method is a full-blown memory jump, involving stack frame creation and wasted CPU cycles.
-**The Golden Solution:** Break logic into granular methods. The ideal size for inlining is **up to 35 bytes of bytecode**. Suddenly, "Clean code" isn't just about readability -- it's the fastest way for the machine to execute your logic.
+**The Problem:** Gigantic, 500-line methods that try to do everything: validate, calculate, log, and save. The JIT cannot "swallow" them (inline them into one another) because they exceed bytecode size limits. Consequently, every call to such a method remains a full-blown "memory jump", involving stack frame creation, local variable saving and wasted CPU cycles.
 
+**The Golden Solution:** Break logic into granular, focused methods. The JIT's ideal threshold for inlining is **up to 35 bytes of bytecode**. Suddenly, "Clean code" isn't just about readability -- it's the fastest way for the machine to execute your logic by keeping it within the CPU's instruction cache.
+
+**The Code in Action:**
 ```java
 @Before("@annotation(AuthoriseUserCreateByAnonymous)")
 public void validateRoleTypeForAnonymousUserCreate(JoinPoint joinPoint) {
@@ -242,14 +252,16 @@ private AppUserPrincipal getUserDetails() {
 }
 ```
 
-> **JIT’s Voice:** "I have a strict **MaxInlineSize** limit. If a method is tiny, I just copy its body directly into the call site. Method boundaries dissolve, the code becomes a contiguous block, and it flies at the speed of light. I’m forced to call huge methods "the old-fashioned way" -- with all the overhead of jumping to addresses and saving stack states. Keep it simple, and I’ll make your code truly fast."
+> **The Voice of JIT:** "I have a strict **MaxInlineSize** limit. If a method is tiny, I just copy its body directly into the call site. Method boundaries dissolve, the code becomes a contiguous block, and it flies. I’m forced to call huge methods 'the old-fashioned way' — with all the overhead of jumping to memory addresses and saving stack states. Keep it small, and I’ll it fast."
 
-> **AOT's Whisper:** "In Native Image, I perform deep reachability analysis. Small methods allow me to precisely determine which parts of the program will never be called, allowing me to prune them during the build. The cleaner your method structure, the leaner and faster the resulting binary."
+> **The Whisper of AOT:** "In Native Image, I perform deep reachability analysis. Small methods allow me to precisely determine which branches of the program will never be called, allowing me to prune them during the build. The cleaner your method structure, the leaner and more optimized the final binary."
 
 ## Rule #6. Pre-allocating Collections
-**The Pain Point:** Creating a `new ArrayList<>()`, `new HashMap<>()`, or other data structures without parameters signs the JVM up for a series of "relocations". As the collection fills, it must allocate a larger array and copy the old data into it. These are redundant allocations, memory fragmentation, and extra work for the Garbage Collector.
-**The Golden Solution:** Always set the **Initial Capacity**. In Java 19+, even more convenient static methods have been introduced that automatically account for the **Load Factor**.
+**The Problem:** Initializing a `new ArrayList<>()` or `new HashMap<>()`without parameters essentially signing up for a series of "internal relocations". As the collection grows, the JVM repeatedly allocates larger backing array copies. This constant "shuffling" of bytes results in redundant memory allocations, fragmentation, and increased pressure on the Garbage Collector.
 
+**The Golden Solution:** Always set the **Initial Capacity**. If you have even a rough estimate of the final size. Starting with Java 19+, use modern factory methods like `HashMap.newHashMap(int)` which automatically calculate the correct internal size by accounting for the **Load Factor** (default 0.75).
+
+**The Code in Action:**
 ```java
 private Mono<ServerResponse> renderErrorResponse(ServerRequest request) {
     // Pre-allocating 16 buckets using the modern factory method (Java 19+)
@@ -270,14 +282,16 @@ private Mono<ServerResponse> renderErrorResponse(ServerRequest request) {
 }
 ```
 
-> **JIT’s Voice:** "Every time an internal array expands, I hear the Garbage Collector's lament. A pre-defined size is like a reserved table at a restaurant: no fuss, no extra movement. Just allocate one block of memory and work with it peacefully, without being distracted by shuffling bytes around."
+> **The Voice of JIT:** "Every time an internal array expands, I hear the Garbage Collector's lament. A pre-defined size is like a reserved table at a restaurant: no fuss, no extra movement. Just allocate one block of memory and work with it peacefully, without being distracted by the constant shuffling of bytes."
 
-> **AOT's Whisper:** "In Native Image, memory management is even more rigorous. Pre-allocation allows me to better predict your application's peak RAM consumption. The fewer dynamic array expansions you have, the more stable and predictable your binary behaves under load."
+> **The Whisper of AOT:** "In Native Image, memory management is even more rigorous. Pre-allocation allows me to better predict your application's peak RAM consumption. The fewer dynamic array expansions you have, the more stable and predictable your binary behaves under load."
 
 ## Rule #7. BigDecimal vs Long (The Battle for Primitives)
-**The Pain Point:** `BigDecimal` is a heavyweight object with an internal `int[]` array. Every arithmetic operation creates a brand-new object in memory. In billing systems or high-throughput calculations, this generates heaps of garbage, forcing the Garbage Collector to work overtime.
-**The Golden Solution:** Store monetary values in the smallest units (cents) as a long. Switch to BigDecimal only at the very last moment -- when displaying to the user.
+**The Problem:** `BigDecimal` is a heavyweight object with an internal `int[]` array. Since it is immutable, every arithmetic operation creates a brand-new object in memory. In billing systems or high-throughput calculations, this generates heaps of "garbage", forcing the Garbage Collector to work overtime and killing the CPU cache locality.
 
+**The Golden Solution:** Store monetary values in the smallest units (cents) as a `long`. Perform all calculations using primitives and switch to `BigDecimal` only at the very last moment — when formatting data for the UI or external APIs.
+
+**The Code in Action:**
 ```java
 public record WalletResponse(
     long amount, // primitive long is lightning fast
@@ -290,14 +304,16 @@ public record WalletResponse(
 }
 ```
 
-> **JIT’s Voice:** "A `long` is just 64 bits in my register; I can keep it directly in CPU registers. Adding two `longs` takes fractions of a nanosecond. With `BigDecimal`, I’m forced to jump into the Heap for every single number and its scale. Choose `long` if you don’t want me to stumble over basic arithmetic."
+> **The Voice of JIT:** "A `long` is just 64 bits; I can keep it directly in my CPU registers. Adding two `longs` takes fractions of a nanosecond. With `BigDecimal`, I’m forced to jump into the Heap for every single number and its scale. Choose `long` if you don’t want me to stumble over basic arithmetic."
 
-> **AOT's Whisper:** "In a Native Image binary, working with `long` often compiles down to a single assembly instruction. `BigDecimal`, on the other hand, drags along a tree of dependencies and complex memory management logic. The more primitives you use, the smaller my executable becomes and the faster it 'warms up'."
+> **The Whisper of AOT:** "In a Native Image binary, working with `long` often compiles down to a single assembly instruction. `BigDecimal`, on the other hand, drags along a tree of dependencies and complex memory management logic. The more primitives you use, the smaller my executable becomes and the faster it 'warms up' from the first call."
 
 ## Rule #8. Minimize Proxies in Hot Paths
-**The Pain Point:** `@Transactional`, `@Async` and `@Cacheable` are incredibly convenient, but behind the scenes, they create dynamic wrappers (Proxies) at runtime. Every call to a proxied method involves an extra "hop" through interceptor objects, a bloated call stack, and the loss of deep inlining potential. In high-throughput loops, this becomes a literal **"stack-killer"**.
-**The Golden Solution:** Keep your core business logic "pure". Use annotations only at the top-level **Entry Points** (like Controller or Service facades), while internal service logic should call standard `private` or `package-private` methods. If you feel the need to call a `@Transactional` method from within the same class, remember that the proxy won't even trigger (**self-invocation**) -- this is a perfect signal to refactor and decompose your logic.
+**The Problem:** `@Transactional`, `@Async` and `@Cacheable` are incredibly convenient, but behind the scenes, they create dynamic wrappers (Proxies) at runtime. Every call to a proxied method involves an extra "hop" through interceptor objects, a bloated call stack, and the loss of deep inlining potential. In high-throughput loops, this becomes a literal **"stack-killer"** that drains CPU cycles on infrastructure overhead.
 
+**The Golden Solution:** Keep your core business logic "pure". Use annotations only at the top-level **Entry Points** (like Controller or Service facades). Internal logic should reside in standard `private` or `package-private` methods. If you feel the need to call a `@Transactional` method from within the same class, remember that the proxy won't even trigger (**self-invocation**) — this is a perfect signal to refactor and decompose your logic into an "Internal Engine" and "External Facade".
+
+**The Code in Action:**
 ```java
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -401,14 +417,16 @@ public class UserService {
 }
 ```
 
-> **JIT’s Voice:** "A Proxy is a labyrinth for me. I see a chain of generated wrapper classes that I have to fight through just to reach the actual code. The less magic there is between me and your logic, the faster I can build a direct call graph and apply **Inlining**."
+> **The Voice of JIT:** "A Proxy is a labyrinth for me. I see a chain of generated wrapper classes and Virtual Table Lookups that I have to fight through just to reach the actual code. The less magic there is between me and your logic, the faster I can build a direct call graph and apply **Inlining**."
 
-> **AOT's Whisper:** "Dynamic proxies are my public enemy number one. To make them work in a Native Image, I either have to generate them ahead of time or carry a heavy reflection mechanism. By reducing unnecessary proxies, you shrink the number of generated classes in the binary and significantly accelerate application startup."
+> **The Whisper of AOT:** "Dynamic proxies are my public enemy number one. To make them work in a Native Image, I have to generate them ahead of time during the build. By reducing unnecessary proxies, you shrink the number of generated classes in the binary and significantly accelerate application startup."
 
 ## Rule #9. Generics: Eliminating Redundant Casts
-**The Pain Point:** Although types are erased at runtime (**Type Erasure**), using `Object` or **Raw Types** forces you (and the JVM) to constantly insert the `checkcast` instruction into the bytecode. Not only is this unsafe, but it also forces the CPU to waste cycles verifying class hierarchies every single time you access the object.
-**The Golden Solution:** Use strictly typed Generics wherever performance is critical. This allows the compiler to guarantee types at build time and enables the JIT compiler to generate machine code without unnecessary "checkpoints".
+**The Problem:** Although types are erased at runtime (**Type Erasure**), using `Object` or **Raw Types** forces both you and the JVM to constantly insert `checkcast` instruction into the bytecode.This isn't just a matter of type safety - it forces the CPU to waste cycles verifying class hierarchies every single time you access an object, breaking the execution flow.
 
+**The Golden Solution:** Use strictly typed Generics wherever performance is critical. This allows the compiler to guarantee type integrity at build time and enables the JIT to generate machine code without unnecessary "runtime checkpoints".
+
+**The Code in Action:**
 ```java
 @RequiredArgsConstructor
 @Component
@@ -442,14 +460,16 @@ public class ValidatorHandler {
 }
 ```
 
-> **JIT’s Voice:** "Every time I see a `checkcast`, I'm forced to downshift and verify: does this object in memory actually match the expected type? With proper Generics, I trust your code 100%. For me, it’s a high-speed highway without traffic lights and ID checks."
+> **The Voice of JIT:** "Every time I see a `checkcast`, I'm forced to downshift and verify: does this object in memory actually match the expected type? With proper Generics, I trust your code completely. For me, it’s a high-speed highway without traffic lights and ID checks."
 
-> **AOT's Whisper:** "In Native Image, I perform a global **Static Analysis** of the entire program. Strict typing helps me define type boundaries more accurately and eliminate redundant checks from the binary. The fewer 'unknown' `Object` types I encounter, the fewer runtime type checks I need to bake into the executable."
+> **The Whisper of AOT:** "In Native Image, I perform a global **Static Analysis** of the entire program. Strict typing helps me define type boundaries more accurately and eliminate redundant checks from the binary. The fewer 'unknown' `Object` types I encounter, the fewer runtime type checks I need to bake into the executable."
 
 ## Rule #10. Static Analysis Over Runtime Discovery (MapStruct)
-**The Pain Point:** Libraries like `ModelMapper`, or the misuse of `ObjectMapper.convertValue()` impose a "dynamic tax" on performance. They rely on runtime introspection, literally "groping" every object to find matching fields via `getField()` and `setAccessible(true)`. For the JIT, this code is opaque; for Native Image, it's a configuration nightmare spanning thousands of lines.
-**The Golden Solution:** Shift all complexity to the compilation stage. Use code generation. **MapStruct** generates standard Java code `target.set(source.get())` at compile-time. As we saw in Rule #4, this results in **zero runtime overhead** and total transparency for the optimizers.
+**The Problem:** Libraries like `ModelMapper`, or the misuse of `ObjectMapper.convertValue()` impose a "dynamic tax" on performance. They rely on runtime introspection, literally "groping" through every object to find matching fields via `getField()` and `setAccessible(true)`. For the JIT, this code is opaque wall; for Native Image, it's a configuration nightmare spanning thousands of lines in `reflect-config.json`.
 
+**The Golden Solution:** Shift all complexity to the compilation stage. Use Annotation Processing (APT).Tools like **MapStruct** generate standard, boring Java code `target.set(source.get())` at compile-time. As established in Rule #4, this results in **zero runtime overhead** and total transparency for the optimizers.
+
+**The Code in Action:**
 ```java
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/user")
@@ -517,14 +537,16 @@ public class UserController {
 }
 ```
 
-> **JIT’s Voice:** "MapStruct code is a gift. It’s a direct, clear, and predictable stream of instructions. I inline these methods instantly, turning mapping into a practically 'free' operation. No searching through metadata HashMaps -- just pure CPU register work."
+> **The Voice of JIT:** "MapStruct code is a gift. It’s a direct, clear, and predictable stream of instructions. I can inline these methods instantly, turning mapping into a practically 'free' operation. No searching through metadata HashMaps or performing expensive **vtable lookups** — just pure CPU register work."
 
-> **AOT's Whisper:** "Static analysis is my best friend. Since MapStruct generates standard method calls, I can see every connection between classes during the build. I don't have to guess which fields you might 'touch' via reflection, so I can boldly prune everything else from the final binary."
+> **The Whisper of AOT:** "**Static analysis** is my foundation. Since MapStruct generates standard method calls, I can see every connection between classes during the build. I don't have to guess which fields you might 'touch' via reflection, so I can boldly prune everything else from the final binary, keeping it metadata-free."
 
 ## Rule #11. Scoped Values instead of ThreadLocal
-**The Pain Point:** For decades, we've stored user or transaction context in `ThreadLocal`. This worked when we had 200-500 threads. But in Java 21, you enable `spring.threads.virtual.enabled: true` and launch 100_000 virtual threads. If each one "clings" to a heavyweight object in `ThreadLocal`, your Heap will burst before the first GC cycle even kicks in. Furthermore, ThreadLocal is a mutable structure, which inherently complicates optimization.
-**The Golden Solution:** Use **Scoped Values** (JEP 446 / 464). They allow you to safely pass immutable data down the call tree. As soon as execution leaves the block, the data becomes unreachable, and the memory is instantly ready for reclamation. No more leaks due to a forgotten `.remove()`.
+**The Problem:** For decades, we've stored user or transaction context in `ThreadLocal`. This worked fine when we had 200-500 platform threads. But in Java 21, you enable `spring.threads.virtual.enabled: true` and launch **100,000+ virtual threads**. If each one "clings" to a heavyweight object in `ThreadLocal`, your Heap will burst before the first GC cycle even kicks in. Furthermore, `ThreadLocal` is a mutable structure, which inherently complicates optimization and side-effect analysis.
 
+**The Golden Solution:** Transition to **Scoped Values** (JEP 446 / 464). They allow you to safely pass immutable data down the call tree. As soon as execution leaves the defined block, the data becomes unreachable, and the memory is instantly ready for reclamation. No more memory leaks due to a forgotten `.remove()`.
+
+**The Code in Action:**
 ```java
 private final static ScopedValue<UserContext> CURRENT_USER = ScopedValue.newInstance();
 
@@ -538,9 +560,9 @@ public void handleRequest(UserContext context) {
 }
 ```
 
-> **JIT’s Voice:** "`ThreadLocal` is a heavy backpack that a thread never takes off until it dies -- and I can never predict when that will be. A `Scoped Value` is a lightweight relay baton: you hold it, you pass it, and then it’s gone. In a world of a million virtual threads, this is the only way to avoid drowning in endless thread-local maps."
+> **The Voice of JIT:** "`ThreadLocal` is a heavy backpack that a thread never takes off until it dies — and I can never predict when that will be. A `Scoped Value` is a lightweight relay baton: you hold it, you pass it, and then it’s gone. In a world of a million virtual threads, this is the only way to avoid drowning in endless, fragmented thread-local maps."
 
-> **AOT's Whisper:** "Since a Scoped Value's lifetime is strictly bound to a code block, I can analyze object lifecycles far more efficiently. This helps me optimize memory allocation and reduce context-switching overhead in the native binary."
+> **The Whisper of AOT:** "Since a Scoped Value's lifetime is strictly bound to a code block, I can analyze object lifecycles far more accurately during the build. This helps me optimize memory allocation and drastically reduce context-switching overhead in the native binary."
 
 ## Final Summary Table
 
@@ -555,10 +577,12 @@ public void handleRequest(UserContext context) {
 | 7   | **Long over BigDecimal**    | CPU register work without Heap allocations.      | Radical reduction in live object volume.          |
 | 8   | **Minimize Proxies**        | Transparent call graph without interceptors.     | Less dynamic bytecode generation.                 |
 | 9   | **Strict Generics**         | Removal of redundant `checkcast` checks.         | Simplified static typing during build.            |
-| 10  | **CodeGen over Reflection** | Speed of direct `a = b` assignment.              | **Zero Overhead**: no runtime magic.              |
-| 11  | **Scoped Values**           | Safe context passing for Virtual Threads.        | Stable Heap with millions of threads.             |
+| 10  | **CodeGen over Reflection** | Speed of direct `a = b` assignment.              | **Zero Overhead**: no runtime lookup magic.       |
+| 11  | **Scoped Values**           | Safe context passing for Virtual Threads.        | Stable Heap with millions of concurrent threads.  |
 
 **Final: The Word of AOT**
 We’ve reached the end of our list. Now, as promised, let’s bring the "Judge" to the stage.
-> **AOT’s Voice:** "Friends, I’ve seen it all. While you write code, I build its complete blueprint. If you follow these rules, my static analysis runs smoothly, and the resulting binary is lightweight and fast.
-> I will notify you of any ambiguity -- be it forgotten reflection or a dynamic proxy -- either at compile-time or right in your face during execution. My verdict is simple: **write transparently, and I will make your Java faster than native C++**."
+
+> **AOT’s Voice:** "Friends, I’ve seen it all. While you write code, I build its complete, immutable blueprint. If you follow these rules, my static analysis runs smoothly, and the resulting binary is surgically lightweight and fast.
+>
+> I will notify you of any ambiguity — be it forgotten reflection or an unoptimized dynamic proxy — either at build-time or with a clear failure during execution. My verdict is simple: **write transparently, provide me with predictable signals, and I will make your Java faster and leaner than ever before**."
