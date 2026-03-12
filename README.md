@@ -113,7 +113,12 @@ public class EntityNotFoundException extends RuntimeException {
 
 **Золотое решение:** Делайте `final` локальные переменные, параметры методов и поля классов. Оптимизированный код – это прежде всего предсказуемый код. Чем меньше переменных могут изменить своё состояние, тем агрессивнее работают оптимизаторы.
 
+### Пример 1. Локальные переменные (Legacy Optimization)
+До Java 8 это был стандарт для помощи компилятору.
+**Современные JIT-компиляторы (HotSpot) и AOT(GraalVM) используют SSA-форму (Static Single Assignment).** Они автоматически распознают переменные, которые не меняются после инициализации (**effectively final**), и оптимизируют их идентично явному `final`. На производительность рантайма в Java 8+ не влияет.
+
 ```java
+// Deprecated for java 8+
 public Resource exportDataToCsvResource() {
     final List<Statistics> data = statisticsRepository.findAll();
 
@@ -134,6 +139,38 @@ public Resource exportDataToCsvResource() {
     return new ByteArrayResource(bytes);
 }
 ```
+
+### Пример 2. Системный подход (Critical for JMM)
+**Для полей класса final - фундаментальная директива управления памятью.**
+
+```java
+@RequiredArgsConstructor
+public class TaskManagerEngine extends RecursiveAction {
+
+    // Final-поля объектов критичны для безопасной публикации (Safe Publication) в ForkJoinPool
+    private final String link;
+    private final String vertexLink;
+    private final Site site;
+
+    private final SitesComponent sitesComponent;
+    private final PagesComponent pagesComponent;
+    private final LemmasComponent lemmasComponent;
+    private final IndexesComponent indexesComponent;
+    private final LuceneMorphologyComponent luceneMorphologyComponent;
+    private final JsoupConfig jsoupConfig;
+
+    // Ссылка на флаг финальна, состояние внутри - мутабельно. Идеальный баланс
+    private final AtomicBoolean cancelled;
+
+    private static final int MIN_WAIT_MS = 100;
+    private static final int MAX_WAIT_MS = 200;
+    private static final String VALID_PREFIX = "/";
+    private static final String REGEX_VALID = "^/.+";
+    
+    // logic
+}
+```
+
 > **Голос JIT:** "Вижу `final` – делаю **Constant Folding**. Если я уверен, что ссылка на объект или значение переменной не изменится, я могу выкинуть лишние проверки из машинного кода и даже заранее вычислить результат некоторых операций. Для меня final – это не ограничение, а зелёный свет: "Здесь безопасно, жми на газ!".
 
 > **Шёпот AOT:** "Для меня `final` – это база для **Dead Code Elimination**. Если я вижу константное условие, я могу просто "отрезать" целые ветки кода, которые никогда не исполнятся. Это делает бинарный файл меньше, а логику - прямолинейнее".

@@ -116,8 +116,13 @@ public class EntityNotFoundException extends RuntimeException {
 
 **The Golden Solution:** Make local variables, method parameters, and class fields `final` by default. Optimized code is, above all, predictable code. The fewer variables can change their state, the more aggressively the optimizers can work their magic.
 
-**The Code in Action:**
+### Case 1: Local Variables (Legacy Optimization)
+Prior to Java 8, using `final` for local variables was a standard practice to assist the compiler.
+
+**Modern JIT (HotSpot) and AOT(GraalVM) compilers utilize SSA (Static Single Assignment) form.** They automatically detect variables that remain unchanged after initialization (**effectively final**) and apply the same optimizations as they would for explicit `final` declarations. Consequently, in Java 8+, this has no measurable impact on runtime performance.
+
 ```java
+// Deprecated for java 8+ (Performance-wise)
 public Resource exportDataToCsvResource() {
     final List<Statistics> data = statisticsRepository.findAll();
 
@@ -136,6 +141,38 @@ public Resource exportDataToCsvResource() {
 
     final byte[] bytes = builder.toString().getBytes(StandardCharsets.UTF_8);
     return new ByteArrayResource(bytes);
+}
+```
+
+### Case 2: System-Level Architecture (Critical for JMM)
+For class fields, `final` is a fundamental directive for memory management and thread safety.
+
+```java
+@RequiredArgsConstructor
+public class TaskManagerEngine extends RecursiveAction {
+
+    // Final fields are critical for Safe Publication in ForkJoinPool (JMM guarantee)
+    private final String link;
+    private final String vertexLink;
+    private final Site site;
+
+    private final SitesComponent sitesComponent;
+    private final PagesComponent pagesComponent;
+    private final LemmasComponent lemmasComponent;
+    private final IndexesComponent indexesComponent;
+    private final LuceneMorphologyComponent luceneMorphologyComponent;
+    private final JsoupConfig jsoupConfig;
+
+    // The reference itself is final, while the internal state remains mutable.
+    // This is a perfect balance for state management
+    private final AtomicBoolean cancelled;
+
+    private static final int MIN_WAIT_MS = 100;
+    private static final int MAX_WAIT_MS = 200;
+    private static final String VALID_PREFIX = "/";
+    private static final String REGEX_VALID = "^/.+";
+    
+    // logic implementation...
 }
 ```
 
