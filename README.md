@@ -1,51 +1,52 @@
-# Java 21+ Extreme Optimization: 10+1 Golden Rules
+Read this in : [English](README.md) | [Русский](README.ru.md)
 
-[🚀 **Case Study:** Java Lean & Fast: 38 MiB RAM and 1.2s Startup.](https://github.com/GroteskSerega/java-on-diet-jvm-vs-graalvm)
+[🚀 **Case Study:** Java Lean & Fast: 38 MiB RAM and 1.2s Startup — Proof of concept and detailed benchmarks](https://github.com/GroteskSerega/java-on-diet-jvm-vs-graalvm)
+[📖 Read full version of article on the DZone]()
+
+# Java 21+ Extreme Optimization: 10+1 Golden Rules
 
 ![](images/image_1.jpg)
 
-[![EN](https://img.shields.io)](README.en.md)
-[![RU](https://img.shields.io)](README.md)
+> **An Engineer's Manifesto: Making JVMs Fly and Native Images Lean.**
 
-> **Манифест инженера: Как заставить JVM летать, а Native Image - быть компактным.**
+# Making JIT Sing and GraalVM Soar
 
-# ТОП-10+1 "Золотых правил оптимизаций Java 21+: как заставить JIT петь, а GraalVM - летать"
+This guide is a deep dive into 11 **Golden Rules of Optimization** for Java 21+, Spring Boot 3, and GraalVM Native Image.
 
-Этот репозиторий содержит примеры кода и подробный разбор 11 золотых правил оптимизации для Java 21+, Spring Boot 3 и GraalVM Native Image.
+Why does your Java system stutter where it should soar? We're used to trusting JVM "magic", but in the era of Java 21 and Native Image, the rules of the game have shifted. From micro-optimizing bytecode to the radical paradigm shift of Scoped Values — we are breaking down the levers that force the JIT to sing and your binaries to launch in milliseconds. No fluff, just hardcore engineering, CPU registers, and the "voices" of compilers embedded in your code.
 
-Почему ваша Java-система буксует там, где должна летать? Мы привыкли доверять магии JVM, но в мире Java 21 и Native Image правила игры изменились. От микро-оптимизаций байт-кода до радикальной смены парадигмы с Scoped Values – разбираем 11 "золотых правил", которые заставят JIT петь, а ваш бинарник – стартовать за миллисекунды. Никакой "воды", только хардкор, регистры процессора и "голоса" компиляторов внутри вашего кода.
+While working with performance-critical code, I’ve often felt that surge of excitement: How can I make this method even faster? Which bolt can I tighten to make the JVM not just run, but literally fly? What architectural changes will make the Native Image even more compact and the cold start even faster?
 
-Работая с кодом, я не раз ловил азарт: а как этот метод можно ускорить ещё? Какую гайку подкрутить, чтобы JVM не просто работала, а буквально летела? Что изменить в архитектуре, чтобы Native Image стал ещё компактнее, а холодный старт – ещё быстрее?
+Having experienced this thrill of optimization many times, I want to share it with you. I’ve distilled my experience into a specific, battle-tested checklist.
 
-Испытав этот азарт оптимизации не раз, я хочу поделиться им с вами. Я собрал квинтэссенцию своего опыта в конкретный чек-лист.
+This isn’t just about code style. These are the "**10+1 Golden Rules for Java 21+ Optimization**".
 
-Это не просто советы по стилю кода. Это "10+1 Золотых правил оптимизации Java 21+".
+These are the levers that make the JIT compiler sing and GraalVM generate binaries with surgical precision.
 
-Это те рычаги, которые заставляют JIT-компилятор петь, а GraalVM – генерировать бинарники с хирургической точностью.
-
-Приготовьтесь! Мы начинаем оптимизировать!
+Buckle up. We're going deep.
 
 ---
 
-### Содержание
+### Table of Contents
 
-1. [Правило №1. Records как DTO (Immutability & Heap)](#правило-1-records-как-dto-immutability--heap)
-2. [Правило №2. fillInStackTrace(null) в бизнес-исключениях](#правило-2-fillinstacktracenull-в-бизнес-исключениях)
-3. [Правило №3. Final везде](#правило-3-final-везде)
-4. [Правило №4. Смерть Рефлексии (AOT-friendly)](#правило-4-смерть-рефлексии-aot-friendly)
-5. [Правило №5. Короткие методы (Inlining Threshold)](#правило-5-короткие-методы-inlining-threshold)
-6. [Правило №6. Преаллокация коллекций](#правило-6-преаллокация-коллекций)
-7. [Правило №7. BigDecimal vs Long (Битва за примитивы)](#правило-7-bigdecimal-vs-long-битва-за-примитивы)
-8. [Правило №8. Избегайте прокси в критических узлах](#правило-8-избегайте-прокси-в-критических-узлах)
-9. [Правило №9. Generics: Избегаем лишних кастов](#правило-9-generics-избегаем-лишних-кастов)
-10. [Правило №10. Статический анализ вместо динамического (MapStruct)](#правило-10-статический-анализ-вместо-динамического-mapstruct)
-11. [Правило №11. Scoped Values вместо ThreadLocal](#правило-11-scoped-values-вместо-threadlocal)
+1. [Rule #1. Records as DTOs (Immutability & Heap)](#rule-1-records-as-dtos-immutability--heap)
+2. [Rule #2. fillInStackTrace(null) in Business Exceptions](#rule-2-fillinstacktracenull-in-business-exceptions)
+3. [Rule #3. Final Everywhere (Predictability is Key)](#rule-3-final-everywhere-predictability-is-key)
+4. [Rule #4. The Death of Reflection (AOT-Friendly)](#rule-4-the-death-of-reflection-aot-friendly)
+5. [Rule #5. Short Methods (The Inlining Threshold)](#rule-5-short-methods-the-inlining-threshold)
+6. [Rule #6. Pre-allocating Collections](#rule-6-pre-allocating-collections)
+7. [Rule #7. BigDecimal vs Long (The Battle for Primitives)](#rule-7-bigdecimal-vs-long-the-battle-for-primitives)
+8. [Rule #8. Minimize Proxies in Hot Paths](#rule-8-minimize-proxies-in-hot-paths)
+9. [Rule #9. Generics: Eliminating Redundant Casts](#rule-9-generics-eliminating-redundant-casts)
+10. [Rule #10. Static Analysis Over Runtime Discovery (MapStruct)](#rule-10-static-analysis-over-runtime-discovery-mapstruct)
+11. [Rule #11. Scoped Values instead of ThreadLocal](#rule-11-scoped-values-instead-of-threadlocal)
 
-## Правило №1. Records как DTO (Immutability & Heap)
-**В чём боль:** Обычные POJO с сеттерами – это "чёрный ящик". Компилятор постоянно начеку: вдруг кто-то изменит состояние объекта в середине метода? Это мешает глубокой оптимизации и усложняет анализ графа объектов.
+## Rule #1. Records as DTOs (Immutability & Heap)
+**The Problem:** Traditional POJOs with setters are a "black box" for the compiler. JIT must stay on high alert: _what if a state change happens in the middle of a method?_ This uncertainty forces the compiler to be conservative, hindering deep optimizations and complicating object graph analysis.
 
-**Золотое решение:** Используйте record для всех данных, которые просто "летят" сквозь систему.
+**The Golden Solution:** Use `record` for all data that simply "flows" through the system. In Java 21, records are not just syntactic sugar; they are a signal to the runtime that the data is stable.
 
+**The Code in Action:**
 ```java
 public record UserUpsertRequest (
 
@@ -81,44 +82,47 @@ public record UserUpsertRequest (
 }
 ```
 
-> **Голос JIT:** "О, record! Наконец-то я вижу final поля по умолчанию. Теперь я точно знаю, что данные не изменится после создания. Я могу агрессивнее применять **Scalar Replacement** (разложить объект на переменные) и заинлайнить доступ к ним прямо в регистры процессора".
+> **The Voice of JIT:** "Finally, a `record`! I see `final` fields by default. Now I know for certain that the data won’t change after instantiation. This allows me to apply **Scalar Replacement** more aggressively — deconstructing the object into individual variables — and inlining access directly into CPU registers."
 
-> **Шёпот AOT:** "Поскольку структура record известна мне ещё на этапе сборки, я могу оптимизировать маппинг этих данных в бинарный код гораздо агрессивнее, чем для обычных классов с их динамической природой".
+> **The Whisper of AOT:** "Since the structure of a record is fixed and known at build time, I can optimize its binary layout far more aggressively than I ever could for dynamic POJOs. No surprises, just raw efficiency."
 
-## Правило №2. fillInStackTrace(null) в бизнес-исключениях
-**В чём боль:** Мы часто используем Exception для логики (например, UserNotFound). Но создание исключения – это не просто создание объекта, это дорогое "путешествие" по всему стеку вызовов для заполнения массива StackStraceElement[]. На это уходит до 90% времени "жизни" исключения.
+## Rule #2. fillInStackTrace(null) in Business Exceptions
+**The Problem:** We often use exceptions for flow control (e.g., `UserNotFoundException`). However, creating a standard exception isn't just about object allocation — it’s an expensive "journey" through the entire call stack to populate the `StackTraceElement[]` array. This process can account for up to **90% of an exception's lifecycle cost**, burning CPU cycles on metadata you'll likely never read in a business log.
 
-**Золотое решение:** Для предсказуемых бизнес-ошибок, где вам не нужен лог со всеми внутренностями фреймворка, переопределите сбор стектрейса.
+**The Golden Solution:** For predictable business errors where you don't need a log filled with framework internals, override the stack trace collection. Using the specific `RuntimeException` constructor with `writableStackTrace = false` makes it even faster and more memory-efficient.
 
+**The Code in Action:**
 ```java
 public class EntityNotFoundException extends RuntimeException {
     public EntityNotFoundException(String message) {
-        super(message, null, false, false); // ещё быстрее через конструктор
+        // Even faster via constructor: message, cause, enableSuppression, writableStackTrace
+        super(message, null, false, false);
     }
 
     @Override
     public synchronized Throwable fillInStackTrace() {
-        // Мы не собираем трассировку стека, что позволяет экономить ресурсы CPU
+        // We don't collect the stack trace, saving CPU cycles
         return this;
     }
 }
 ```
 
-> **Голос JIT:** "Спасибо! Когда вы создаёте обычное исключение, я вынужден бросить всё и побайтово восстанавливать цепочку вызовов. Этот как ставить фильм на паузу, чтобы пересчитать все кадры. С этим правилом я просто создаю объект и бегу дальше, сохраняя темп выполнения".
+> **The Voice of JIT:** "Thank you! When you create a standard exception, I’m forced to halt optimizations and reconstruct the call chain byte by byte. It’s like pausing a high-speed movie just to count every single frame. With this rule, I simply instantiate the object and move on, maintaining peak execution momentum."
 
-> **Шёпот AOT:** "В Native Image каждый стектрейс – это дополнительный мета-код, который я должен уметь восстанавливать в рантайме. Убирая `fillInStackTrace`, вы не только ускоряете логику, но и делаете мой бинарник компактнее, избавляя меня от лишних таблиц метаданных".
+> **The Whisper of AOT:** "In Native Image, every stack trace requires additional metadata to be reconstructible at runtime. By removing `fillInStackTrace`, you're not just speeding up logic -- you're making my binary leaner by stripping away redundant metadata that would otherwise bloat the executable."
 
-## Правило №3. Final везде
-**В чём боль:** Неопределённость. Если переменная не помечена как `final`, компилятор должен учитывать возможность её изменения в любой момент. Это раздувает граф состояний, который нужно анализировать при оптимизации.
+## Rule #3. Final Everywhere (Predictability is Key)
+**The Problem:** Uncertainty. If a variable isn’t marked as `final`, the compiler must account for the possibility of its state changing at any moment. This bloats the state graph that needs to be analyzed during optimization, forcing the compiler to be more conservative with register allocation and inlining.
 
-**Золотое решение:** Делайте `final` локальные переменные, параметры методов и поля классов. Оптимизированный код – это прежде всего предсказуемый код. Чем меньше переменных могут изменить своё состояние, тем агрессивнее работают оптимизаторы.
+**The Golden Solution:** Make local variables, method parameters, and class fields `final` by default. Optimized code is, above all, predictable code. The fewer variables can change their state, the more aggressively the optimizers can work their magic.
 
-### Пример 1. Локальные переменные (Legacy Optimization)
-До Java 8 это был стандарт для помощи компилятору.
-**Современные JIT-компиляторы (HotSpot) и AOT(GraalVM) используют SSA-форму (Static Single Assignment).** Они автоматически распознают переменные, которые не меняются после инициализации (**effectively final**), и оптимизируют их идентично явному `final`. На производительность рантайма в Java 8+ не влияет.
+### Case 1: Local Variables (Legacy Optimization)
+Prior to Java 8, using `final` for local variables was a standard practice to assist the compiler.
+
+**Modern JIT (HotSpot) and AOT(GraalVM) compilers utilize SSA (Static Single Assignment) form.** They automatically detect variables that remain unchanged after initialization (**effectively final**) and apply the same optimizations as they would for explicit `final` declarations. Consequently, in Java 8+, this has no measurable impact on runtime performance.
 
 ```java
-// Deprecated for java 8+
+// Deprecated for java 8+ (Performance-wise)
 public Resource exportDataToCsvResource() {
     final List<Statistics> data = statisticsRepository.findAll();
 
@@ -140,14 +144,14 @@ public Resource exportDataToCsvResource() {
 }
 ```
 
-### Пример 2. Системный подход (Critical for JMM)
-**Для полей класса final - фундаментальная директива управления памятью.**
+### Case 2: System-Level Architecture (Critical for JMM)
+For class fields, `final` is a fundamental directive for memory management and thread safety.
 
 ```java
 @RequiredArgsConstructor
 public class TaskManagerEngine extends RecursiveAction {
 
-    // Final-поля объектов критичны для безопасной публикации (Safe Publication) в ForkJoinPool
+    // Final fields are critical for Safe Publication in ForkJoinPool (JMM guarantee)
     private final String link;
     private final String vertexLink;
     private final Site site;
@@ -159,7 +163,8 @@ public class TaskManagerEngine extends RecursiveAction {
     private final LuceneMorphologyComponent luceneMorphologyComponent;
     private final JsoupConfig jsoupConfig;
 
-    // Ссылка на флаг финальна, состояние внутри - мутабельно. Идеальный баланс
+    // The reference itself is final, while the internal state remains mutable.
+    // This is a perfect balance for state management
     private final AtomicBoolean cancelled;
 
     private static final int MIN_WAIT_MS = 100;
@@ -167,24 +172,25 @@ public class TaskManagerEngine extends RecursiveAction {
     private static final String VALID_PREFIX = "/";
     private static final String REGEX_VALID = "^/.+";
     
-    // logic
+    // logic implementation...
 }
 ```
 
-> **Голос JIT:** "Вижу `final` – делаю **Constant Folding**. Если я уверен, что ссылка на объект или значение переменной не изменится, я могу выкинуть лишние проверки из машинного кода и даже заранее вычислить результат некоторых операций. Для меня final – это не ограничение, а зелёный свет: "Здесь безопасно, жми на газ!".
+> **The Voice of JIT:** "When I see `final`, I can perform **Constant Folding** and optimize `Register Allocation` more effectively. If I’m certain that a reference or a primitive value won't change, I can strip redundant checks from the machine code. To me, `final` isn’t a restriction — it’s a green light that says: It’s safe here, floor it!
 
-> **Шёпот AOT:** "Для меня `final` – это база для **Dead Code Elimination**. Если я вижу константное условие, я могу просто "отрезать" целые ветки кода, которые никогда не исполнятся. Это делает бинарный файл меньше, а логику - прямолинейнее".
+> **The Whisper of AOT:** "For me, `final` is the foundation for **Dead Code Elimination**. If I see a constant condition, I can simply prune entire branches of code that will never execute. This results in a smaller binary and a much tighter execution path."
 
-## Правило №4. Смерть Рефлексии (AOT-friendly)
-**В чём боль:** Рефлексия – это "чёрная дыра" для производительности. JIT не может заранее заглянуть внутрь вызова через `Method.invoke()`, а Native Image и вовсе требует описывать каждый такой "чих" в JSON-конфигах. Если вы используете рефлексию в критическом узле, вы добровольно отказываетесь от 30-50% потенциальной скорости.
+## Rule #4. The Death of Reflection (AOT-Friendly)
+**The Problem:** Reflection is a performance "black hole". JIT cannot look inside a `Method.invoke()` call ahead of time, and Native Image forces you to explicitly document every such "sneeze" in bulky, error-prone JSON configuration files. If you use reflection in a hot path, you are voluntarily leaving **30-50% of your potential throughput** on the table.
 
-**Золотое решение:** Используйте **MapStruct**, **JOOQ** и другие библиотеки, работающие через кодогенерацию (APT). Они создают чистый Java-код на этапе компиляции, который выглядит так, будто вы написали его руками - с прямыми вызовами геттеров и сеттеров.
+**The Golden Solution:** Leverage Annotation Processing (APT) libraries like **MapStruct**, **Lombok**, or **JOOQ**. They generate clean, standard Java code during compilation that looks exactly as if you'd written it by hand — with direct getter and setter calls that the compiler can easily optimize.
 
+**The Code in Action:**
 ```java
 @Mapper(componentModel = MappingConstants.ComponentModel.SPRING,
         unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface UserMapper {
-
+    // Standard mapping methods as shown above...
     User requestToUser(UserUpsertRequest request);
 
     UserResponse userToResponse(User user);
@@ -206,18 +212,20 @@ public interface UserMapper {
 }
 ```
 
-> **Голос JIT:** "Рефлексия для меня – это как туман на трассе. Я не вижу, что впереди и снижаю скорость до минимума, отключая все свои суперспособности. А код от MapStruct – это прямой автобан. Я вижу `entity.getName()` -> `dto.setName()` и просто "прошиваю" этот вызов насквозь через **Inlining**".
+> **The Voice of JIT:** "Reflection is like thick fog on a highway; I can't see what's ahead, so I slow down to a crawl and **disable** my most aggressive optimizations. But MapStruct code is a straight autobahn. I see `entity.getName()` -> `dto.setName()` and I simply punch straight through that call using **inlining** and **Devirtualization**."
 
-> **Шёпот AOT:** "Рефлексия – мой ночной кошмар. Чтобы она заработала в Native Image, мне нужно тащить за собой кучу метаданных, что раздувает бинарник. Кодогенерация позволяет мне выкинуть всё лишнее ещё при сборке. Меньше рефлексии – меньше reflect-config.json и быстрее старт".
+> **The Whisper of AOT:** "Reflection is my worst nightmare. To make it work in a Native Image, I have to carry around a mountain of metadata, which bloats the binary. Code generation lets me prune the dead weight at build time. Less reflection means a tiny `reflect-config.json` and a lightning-fast startup."
 
-## Правило №5. Короткие методы (Inlining Threshold)
-**В чём боль:** Гигантские методы на 500 строк, которые делают всё: валидируют, считают, логируют и сохраняют. JIT не может их "проглотить" (встроить один в другой), потому что они превышают лимиты по размеру байт-кода. В итоге каждый вызов этого метода – это честный переход по адресу в памяти, создание фрейма в стеке и куча лишних тактов процессора.
+## Rule #5. Short Methods (The Inlining Threshold)
+**The Problem:** Gigantic, 500-line methods that try to do everything: validate, calculate, log, and save. The JIT cannot "swallow" them (inline them into one another) because they exceed bytecode size limits. Consequently, every call to such a method remains a full-blown "memory jump", involving stack frame creation, local variable saving and wasted CPU cycles.
 
-**Золотое решение:** Дробите логику на мелкие методы. Идеальный размер для инлайнинга – **до 35 байт байт-кода**. Красивый код по Clean Code внезапно оказывается самым быстрым для машины.
+**The Golden Solution:** Break logic into granular, focused methods. The JIT's ideal threshold for inlining is **up to 35 bytes of bytecode**. Suddenly, "Clean code" isn't just about readability -- it's the fastest way for the machine to execute your logic by keeping it within the CPU's instruction cache.
 
+**The Code in Action:**
 ```java
 @Before("@annotation(AuthoriseUserCreateByAnonymous)")
 public void validateRoleTypeForAnonymousUserCreate(JoinPoint joinPoint) {
+    // Logic split into small, focused methods as shown in the example...
     HttpServletRequest request = getRequest();
 
     loggingOperation(joinPoint, request);
@@ -283,20 +291,19 @@ private AppUserPrincipal getUserDetails() {
 }
 ```
 
-> **Голос JIT:** "У меня есть жёсткий лимит **MaxInlineSize**. Если метод крохотный, я просто копирую его тело в место вызова. Границы между методами исчезают, код становится монолитным и летит со скоростью света. Огромные методы я вынужден вызывать "по старинке" - с сохранением состояния стека и прыжками по адресами. Будьте проще, и я сделаю ваш код по-настоящему быстрым!"
+> **The Voice of JIT:** "I have a strict **MaxInlineSize** limit. If a method is tiny, I just copy its body directly into the call site. Method boundaries dissolve, the code becomes a contiguous block, and it flies. I’m forced to call huge methods 'the old-fashioned way' — with all the overhead of jumping to memory addresses and saving stack states. Keep it small, and I’ll it fast."
 
-> **Шёпот AOT:** "В Native Image я провожу глубокий анализ достижимости кода. Мелкие методы позволяют мне точнее определить, какие части программы никогда не будут вызваны, и полностью вырезать их при сборке. Чем чище структура ваших методов, тем стройнее и быстрее итоговый бинарник".
+> **The Whisper of AOT:** "In Native Image, I perform deep reachability analysis. Small methods allow me to precisely determine which branches of the program will never be called, allowing me to prune them during the build. The cleaner your method structure, the leaner and more optimized the final binary."
 
-## Правило №6. Преаллокация коллекций
-**В чём боль:** Создавая `new ArrayList<>()`, `new HashMap<>()` и другие структуры данных без параметров, вы подписываете JVM на серию "переездов". Как только список наполняется, он создаёт массив побольше и копирует туда старые данные. Это лишние аллокации, фрагментация памяти и работа для GC.
+## Rule #6. Pre-allocating Collections
+**The Problem:** Initializing a `new ArrayList<>()` or `new HashMap<>()`without parameters essentially signing up for a series of "internal relocations". As the collection grows, the JVM repeatedly allocates larger backing array copies. This constant "shuffling" of bytes results in redundant memory allocations, fragmentation, and increased pressure on the Garbage Collector.
 
-**Золотое решение:** Задавайте Initial Capacity. В Java 19+ для этого появились ещё более удобные статические методы, которые сами учитывают коэффициент загрузки (Load Factor).
+**The Golden Solution:** Always set the **Initial Capacity**. If you have even a rough estimate of the final size. Starting with Java 19+, use modern factory methods like `HashMap.newHashMap(int)` which automatically calculate the correct internal size by accounting for the **Load Factor** (default 0.75).
 
+**The Code in Action:**
 ```java
-import java.util.LinkedHashMap;
-
 private Mono<ServerResponse> renderErrorResponse(ServerRequest request) {
-    // Предварительное выделение 16 buckets
+    // Pre-allocating 16 buckets using the modern factory method (Java 19+)
     Map<String, Object> errorProperties = LinkedHashMap.newLinkedHashMap(16);
 
     errorProperties.putAll(getErrorAttributes(request,
@@ -308,47 +315,50 @@ private Mono<ServerResponse> renderErrorResponse(ServerRequest request) {
     return ServerResponse.status(status)
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(errorProperties)
-            .doOnNext(resp -> log.error("Ошибка запроса: [{}]: {}",
+            .doOnNext(resp -> log.error("Request error: [{}]: {}",
                     status,
                     errorProperties));
 }
 ```
 
-> **Голос JIT:** "Каждый раз, когда массив внутри коллекции расширяется, я слышу плач Garbage Collector’a. Заранее заданный размер – это как забронированный столик в ресторане: никакой суеты и лишних движений. Я просто выделяю один кусок памяти и спокойно работаю с ним, не отвлекаясь на перекладывание байтов".
+> **The Voice of JIT:** "Every time an internal array expands, I hear the Garbage Collector's lament. A pre-defined size is like a reserved table at a restaurant: no fuss, no extra movement. Just allocate one block of memory and work with it peacefully, without being distracted by the constant shuffling of bytes."
 
-> **Шёпот AOT:** "В Native Image управление памятью ещё более строгое. Преаллокация позволяет мне лучше предсказать пиковое потребление RAM вашим приложением. Чем меньше у вас динамических расширений массивов, тем стабильнее и предсказуемее ведёт себя бинарник под нагрузкой".
+> **The Whisper of AOT:** "In Native Image, memory management is even more rigorous. Pre-allocation allows me to better predict your application's peak RAM consumption. The fewer dynamic array expansions you have, the more stable and predictable your binary behaves under load."
 
-## Правило №7. BigDecimal vs Long (Битва за примитивы)
-**В чём боль:** `BigDecimal` – это тяжёлый объект, внутри которого скрыт массив `int[]`. Любая арифметическая операция с ним – это создание нового объекта в памяти. В биллинге или высоконагруженных расчётах это генерирует тонны мусора в памяти, заставляя GC работать на износ.
+## Rule #7. BigDecimal vs Long (The Battle for Primitives)
+**The Problem:** `BigDecimal` is a heavyweight object with an internal `int[]` array. Since it is immutable, every arithmetic operation creates a brand-new object in memory. In billing systems or high-throughput calculations, this generates heaps of "garbage", forcing the Garbage Collector to work overtime and killing the CPU cache locality.
 
-**Золотое решение:** Храните денежные значения в минимальных единицах (копейки, центы) в типе `long`. Переходите на `BigDecimal` только в самый последний момент – при выводе пользователю.
+**The Golden Solution:** Store monetary values in the smallest units (cents) as a `long`. Perform all calculations using primitives and switch to `BigDecimal` only at the very last moment — when formatting data for the UI or external APIs.
 
+**The Code in Action:**
 ```java
 public record WalletResponse(
-    long amount, // long - это быстро
+    long amount, // primitive long is lightning fast
     String currency
 ) {
-    // Только для красоты при выводе
+    // Only for UI/API display
     public BigDecimal getDisplayAmount() {
         return BigDecimal.valueOf(amount, 2);
     }
 }
 ```
 
-> **Голос JIT:** "`long` – это просто 64 бита в моём регистре. Я храню его прямо в регистрах процессора. Сложение двух `long` занимает доли наносекунды. С `BigDecimal` я вынужден прыгать в кучу (Heap) за каждым числом и его масштабом. Выбирайте long, если не хотите, чтобы я буксовал на элементарной арифметике".
+> **The Voice of JIT:** "A `long` is just 64 bits; I can keep it directly in my CPU registers. Adding two `longs` takes fractions of a nanosecond. With `BigDecimal`, I’m forced to jump into the Heap for every single number and its scale. Choose `long` if you don’t want me to stumble over basic arithmetic."
 
-> **Шёпот AOT:** "В бинарном коде Native Image работа с `long` превращается в одну инструкцию ассемблера. `BigDecimal` же тянет за собой дерево зависимостей и сложную логику управления памятью. Чем больше примитивов, тем меньше мой исполняемый файл и тем быстрее он "прогревается"".
+> **The Whisper of AOT:** "In a Native Image binary, working with `long` often compiles down to a single assembly instruction. `BigDecimal`, on the other hand, drags along a tree of dependencies and complex memory management logic. The more primitives you use, the smaller my executable becomes and the faster it 'warms up' from the first call."
 
-## Правило №8. Избегайте прокси в критических узлах
-**В чём боль:** `@Transactional` и `@Async`, `@Cacheable` - это удобно, но за кулисами они  создают динамические обертки (Proxy) в рантайме. Каждый вызов проксированного метода - это лишний "прыжок" по объектам-перехватчикам, раздутый стек вызовов и невозможность глубокого инлайнинга. В высоконагруженных циклах это становится настоящим "стек-киллером".
+## Rule #8. Minimize Proxies in Hot Paths
+**The Problem:** `@Transactional`, `@Async` and `@Cacheable` are incredibly convenient, but behind the scenes, they create dynamic wrappers (Proxies) at runtime. Every call to a proxied method involves an extra "hop" through interceptor objects, a bloated call stack, and the loss of deep inlining potential. In high-throughput loops, this becomes a literal **"stack-killer"** that drains CPU cycles on infrastructure overhead.
 
-**Золотое решение:** Держите бизнес-логику "чистой". Используйте аннотации только на верхнем уровне (Entry Points), а внутри сервисов вызывайте обычные private/package-private методы. Если вам нужно вызвать `@Transactional` метод из того же класса - вы уже знаете, что прокси не сработает (self-invocation), и это отличный повод задуматься о декомпозиции.
+**The Golden Solution:** Keep your core business logic "pure". Use annotations only at the top-level **Entry Points** (like Controller or Service facades). Internal logic should reside in standard `private` or `package-private` methods. If you feel the need to call a `@Transactional` method from within the same class, remember that the proxy won't even trigger (**self-invocation**) — this is a perfect signal to refactor and decompose your logic into an "Internal Engine" and "External Facade".
 
+**The Code in Action:**
 ```java
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 @Service
 public class UserService {
+    // Standard Spring Service with clean internal calls as shown above...
 
     @Value("${app.kafka.kafkaStatisticsService.kafkaUserCreatedStatus}")
     private String kafkaUserCreatedStatus;
@@ -386,7 +396,8 @@ public class UserService {
     @AuthoriseUserCreateByAnonymous
     @Transactional
     public UUID save(User user, RoleType roleType) {
-        // обычный вызов метода
+        // Business logic here...
+        // Heavy operations without inner proxy calls
         userRepository.findUserIdByUsernameAndEmail(
                 user.getUsername(),
                 user.getEmail()
@@ -419,7 +430,6 @@ public class UserService {
     @AuthoriseUserUpdateAndDelete
     @Transactional
     public UUID update(UUID userId, UserUpsertRequest request, RoleType roleType) {
-        // обычный вызов метода
         User existedUser = findById(userId);
 
         userMapper.updateUser(request, existedUser);
@@ -446,15 +456,16 @@ public class UserService {
 }
 ```
 
-> **Голос JIT:** "Прокси для меня – это лабиринт. Я вижу цепочку сгенерированных классов-оберток, через которые нужно продраться к реальному коду. Чем меньше магии между мной и вашим кодом, тем быстрее я построю прямой граф вызовов и применю **inlining**".
+> **The Voice of JIT:** "A Proxy is a labyrinth for me. I see a chain of generated wrapper classes and Virtual Table Lookups that I have to fight through just to reach the actual code. The less magic there is between me and your logic, the faster I can build a direct call graph and apply **Inlining**."
 
-> **Шёпот AOT:** "Динамические прокси – мой враг номер один. Чтобы они работали в Native Image, мне приходится генерировать их заранее или тащить тяжёлый механизм рефлексии. Убирая лишние прокси, вы уменьшаете количество сгенерированных классов в бинарнике и ускоряете запуск приложения".
+> **The Whisper of AOT:** "Dynamic proxies are my public enemy number one. To make them work in a Native Image, I have to generate them ahead of time during the build. By reducing unnecessary proxies, you shrink the number of generated classes in the binary and significantly accelerate application startup."
 
-## Правило №9. Generics: Избегаем лишних кастов
-**В чём боль:** Хотя в рантайме типы стираются (**Type Erasure**), использование `Object` или **Raw Types** заставляет вас (и JVM) постоянно вставлять в байт-код инструкцию `checkcast`. Это не только небезопасно, но и заставляет процессор тратить лишние такты на проверку иерархии классов при каждом обращении к объекту.
+## Rule #9. Generics: Eliminating Redundant Casts
+**The Problem:** Although types are erased at runtime (**Type Erasure**), using `Object` or **Raw Types** forces both you and the JVM to constantly insert `checkcast` instruction into the bytecode.This isn't just a matter of type safety - it forces the CPU to waste cycles verifying class hierarchies every single time you access an object, breaking the execution flow.
 
-**Золотое решение:** Используйте строго типизированные дженерики везде, где важна производительность. Это позволяет компилятору гарантировать типы на этапе сборки, а JIT-компилятору - строить машинный код без лишних "контрольно-пропускных пунктов".
+**The Golden Solution:** Use strictly typed Generics wherever performance is critical. This allows the compiler to guarantee type integrity at build time and enables the JIT to generate machine code without unnecessary "runtime checkpoints".
 
+**The Code in Action:**
 ```java
 @RequiredArgsConstructor
 @Component
@@ -462,8 +473,8 @@ public class ValidatorHandler {
 
     private final Validator validator;
 
-    // Использование <T> гарантирует, что на выходе будет тот же тип, что и на входе
-    // Никаких ручных (Cast) в вызывающем коде!
+    // Using <T> ensures the output type matches the input
+    // No manual (Casts) in the calling code!
     public <T> Mono<T> validate(T body) {
         return Mono.fromCallable(() -> {
                     var violations = validator.validate(body);
@@ -488,21 +499,22 @@ public class ValidatorHandler {
 }
 ```
 
-> **Голос JIT:** "Каждый раз, когда я вижу `checkcast`, я вынужден притормозить и проверить: а точно ли этот объект в памяти совпадает с ожидаемым типом? С правильными дженериками я доверяю вашему коду на 100%. Для меня это скоростная трасса без светофоров и лишних проверок документов".
+> **The Voice of JIT:** "Every time I see a `checkcast`, I'm forced to downshift and verify: does this object in memory actually match the expected type? With proper Generics, I trust your code completely. For me, it’s a high-speed highway without traffic lights and ID checks."
 
-> **Шёпот AOT:** "В Native Image я провожу **Static Analysis** всей программы. Строгая типизация помогает мне точнее определить границы типов и исключить лишние проверки из бинарника. Чем меньше "неизвестных" `Object`, тем меньше проверок типов в рантайме и выше производительность".
+> **The Whisper of AOT:** "In Native Image, I perform a global **Static Analysis** of the entire program. Strict typing helps me define type boundaries more accurately and eliminate redundant checks from the binary. The fewer 'unknown' `Object` types I encounter, the fewer runtime type checks I need to bake into the executable."
 
-## Правило №10. Статический анализ вместо динамического (MapStruct)
-**В чём боль:** Библиотеки вроде `ModelMapper` или злоупотребление `ObjectMapper.convertValue()` - это "динамический налог" на производительность.  Они используют интроспекцию в рантайме, буквально "ощупывая" каждый объект в поисках подходящих полей через `getField()` и `setAccessible(true)`. Для JIT это непрозрачный код, а для Native Image - конфиг-ад на тысячи строк.
+## Rule #10. Static Analysis Over Runtime Discovery (MapStruct)
+**The Problem:** Libraries like `ModelMapper`, or the misuse of `ObjectMapper.convertValue()` impose a "dynamic tax" on performance. They rely on runtime introspection, literally "groping" through every object to find matching fields via `getField()` and `setAccessible(true)`. For the JIT, this code is opaque wall; for Native Image, it's a configuration nightmare spanning thousands of lines in `reflect-config.json`.
 
-**Золотое решение:** Переносите всю сложность на этап компиляции. Используйте кодогенерацию. **MapStruct** генерирует обычный Java-код target.set(source.get()) на этапе компиляции. Мы уже видели его мощь в Правиле №4, но здесь подчеркнём: **нулевой оверхед** в рантайме и полная прозрачность для оптимизаторов.
+**The Golden Solution:** Shift all complexity to the compilation stage. Use Annotation Processing (APT).Tools like **MapStruct** generate standard, boring Java code `target.set(source.get())` at compile-time. As established in Rule #4, this results in **zero runtime overhead** and total transparency for the optimizers.
 
+**The Code in Action:**
 ```java
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/user")
 @RestController
 public class UserController {
-
+    // Controller logic using generated mappers as shown above...
     private static final String pathToUserResource = "/api/v1/user/{id}";
 
     private final UserMapper userMapper;
@@ -511,7 +523,6 @@ public class UserController {
 
     @GetMapping
     public ResponseEntity<UserListResponse> findAll(@Valid UserFilter userFilter) {
-        // Чистый маппинг: ни одной операции рефлексии в рантайме!
         return ResponseEntity.ok(
                 userMapper.userListToUserListResponse(
                         userService.findAll(userFilter)
@@ -521,6 +532,7 @@ public class UserController {
 
     @GetMapping("/{id}")
     public ResponseEntity<UserResponse> findById(@PathVariable UUID id) {
+        // Direct call to generated code. Zero reflection.
         return ResponseEntity.ok(
                 userMapper.userToResponse(userService.findById(id))
         );
@@ -564,56 +576,52 @@ public class UserController {
 }
 ```
 
-> **Голос JIT:** "Для меня код от **MapStruct** – это подарок. Это прямой, понятный и предсказуемый поток инструкций. Я инлайню такие методы мгновенно, превращая маппинг в практически бесплатную операцию. Никаких поисков по именам полей в HashMap метаданных - только работа с регистрами процессора".
+> **The Voice of JIT:** "MapStruct code is a gift. It’s a direct, clear, and predictable stream of instructions. I can inline these methods instantly, turning mapping into a practically 'free' operation. No searching through metadata HashMaps or performing expensive **vtable lookups** — just pure CPU register work."
 
-> **Шёпот AOT:** "Статический анализ – мой лучший друг. Поскольку **MapStruct** генерирует обычные вызовы методов, я вижу все связи между классами ещё при сборке бинарника. Мне не нужно гадать, какие поля вы захотите "потрогать" через рефлексию, поэтому я могу смело вырезать всё лишнее из итогового файла".
+> **The Whisper of AOT:** "**Static analysis** is my foundation. Since MapStruct generates standard method calls, I can see every connection between classes during the build. I don't have to guess which fields you might 'touch' via reflection, so I can boldly prune everything else from the final binary, keeping it metadata-free."
 
-## Правило №11. Scoped Values вместо ThreadLocal
-**В чём боль:** Мы десятилетиями хранили контекст пользователя или транзакции в `ThreadLocal`. Это работало, когда потоков было 200-500. Но в Java 21 вы включаете `spring.threads.virtual.enabled: true` и запускаете 100_000 виртуальных потоков. Если каждый из них "присосётся" к тяжёлому объекту в `ThreadLocal`, ваш Heap лопнет быстрее, чем сработает первый GC. К тому же, `ThreadLocal` - это изменяемая структура, что само по себе усложняет оптимизацию.
+## Rule #11. Scoped Values instead of ThreadLocal
+**The Problem:** For decades, we've stored user or transaction context in `ThreadLocal`. This worked fine when we had 200-500 platform threads. But in Java 21, you enable `spring.threads.virtual.enabled: true` and launch **100,000+ virtual threads**. If each one "clings" to a heavyweight object in `ThreadLocal`, your Heap will burst before the first GC cycle even kicks in. Furthermore, `ThreadLocal` is a mutable structure, which inherently complicates optimization and side-effect analysis.
 
-**Золотое решение:** Используйте **Scoped Values** (JEP 446 / 464). Они позволяют безопасно передать неизменяемые данные вниз по дереву вызовов. Как только выполнение выходит из блока - данные становятся недоступны, а память мгновенно готова к очистке. Никаких утечек из-за забытого `.remove()`.
+**The Golden Solution:** Transition to **Scoped Values** (JEP 446 / 464). They allow you to safely pass immutable data down the call tree. As soon as execution leaves the defined block, the data becomes unreachable, and the memory is instantly ready for reclamation. No more memory leaks due to a forgotten `.remove()`.
 
+**The Code in Action:**
 ```java
 private final static ScopedValue<UserContext> CURRENT_USER = ScopedValue.newInstance();
 
 public void handleRequest(UserContext context) {
-    // Привязываем данные к области видимости. (Scope)
+    // Bind data to the scope
     ScopedValue.where(CURRENT_USER, context).run(() -> {
-        // Внутри этого блока и всех вложенных методов
-        // CURRENT_USER.get() вернёт наш контекст.
-        // Никаких утечек, никакой привязки к жизни потока!
+        // Inside this block, CURRENT_USER.get() works.
+        // No leaks, no attachment to thread lifetime!
         processOrder();
     });
 }
 ```
 
-> **Голос JIT:** "`ThreadLocal` для меня - это тяжёлый рюкзак, который поток не снимает до самой смерти. Я не могу предсказать, когда он его снимет. `Scoped Value` – это лёгкая эстафетная палочка: подержал, передал, и она исчезла. В мире миллиона виртуальных потоков это единственный способ не утонуть в бесконечных мапах внутри потоков".
+> **The Voice of JIT:** "`ThreadLocal` is a heavy backpack that a thread never takes off until it dies — and I can never predict when that will be. A `Scoped Value` is a lightweight relay baton: you hold it, you pass it, and then it’s gone. In a world of a million virtual threads, this is the only way to avoid drowning in endless, fragmented thread-local maps."
 
-> **Шёпот AOT:** "Поскольку область видимости Scoped Value жёстко ограничена блоком кода, я могу гораздо эффективнее анализировать время жизни объектов. Это помогает мне оптимизировать распределение памяти и уменьшить накладные расходы на переключение контекста в Native-бинарнике".
+> **The Whisper of AOT:** "Since a Scoped Value's lifetime is strictly bound to a code block, I can analyze object lifecycles far more accurately during the build. This helps me optimize memory allocation and drastically reduce context-switching overhead in the native binary."
 
-## Финал: Слово AOT
-Мы закончили наш список. Теперь, как и договаривались, выпускаем на сцену "судью".
+## Final Summary Table
 
-> **AOT:** "Друзья, я всё видел. Пока вы пишете код, я строю его карту. Если вы соблюдаете эти правила, мой статический анализ проходит гладко, а бинарник получается лёгким и быстрым.
-> Обо всех неоднозначных моментах – будь то забытая рефлексия или динамический прокси – я сообщу вам либо на этапе компиляции, либо уже в процессе работы. Мой вердикт прост: пишите прозрачно, и я сделаю вашу Java быстрее нативного C++".
+| #   | Golden Rule                 | JVM Profit (JIT)                                 | Native Image Profit (AOT)                         |
+|-----|-----------------------------|--------------------------------------------------|---------------------------------------------------|
+| 1   | **Records over POJO**       | Aggressive inlining of `final` fields.           | Fast static object graph analysis.                |
+| 2   | **fillInStackTrace(null)**  | CPU savings (10-50x) on Exception creation.      | Less native code for stack walking.               |
+| 3   | **Final Everywhere**        | **Constant Folding** (compile-time calculation). | More compact and predictable code.                |
+| 4   | **The Death of Reflection** | Direct method calls without runtime lookups.     | **Critical**: Removes bulky `reflect-config.json` |
+| 5   | **Short Methods**           | Guaranteed **Inlining**.                         | Binary size optimization (pruning).               |
+| 6   | **Pre-allocation**          | Fewer GC pauses on array "relocations".          | Lower peak RAM consumption.                       |
+| 7   | **Long over BigDecimal**    | CPU register work without Heap allocations.      | Radical reduction in live object volume.          |
+| 8   | **Minimize Proxies**        | Transparent call graph without interceptors.     | Less dynamic bytecode generation.                 |
+| 9   | **Strict Generics**         | Removal of redundant `checkcast` checks.         | Simplified static typing during build.            |
+| 10  | **CodeGen over Reflection** | Speed of direct `a = b` assignment.              | **Zero Overhead**: no runtime lookup magic.       |
+| 11  | **Scoped Values**           | Safe context passing for Virtual Threads.        | Stable Heap with millions of concurrent threads.  |
 
-## Резюме-таблица для тех, кто крутит:
+**Final: The Word of AOT**
+We’ve reached the end of our list. Now, as promised, let’s bring the "Judge" to the stage.
 
-| №  | Золотое правило               | Профит для JVM (JIT)                                  | Профит для Native Image (AOT)                              |
-|----|-------------------------------|-------------------------------------------------------|------------------------------------------------------------|
-| 1  | **Record вместо POJO**        | Агрессивный инлайнинг `final` полей.                  | Быстрый статический анализ графа объектов.                 |
-| 2  | **fillInStackTrace(null)**    | Экономия CPU (в 10-50 раз) при создании Exception.    | Меньше нативного кода для обхода стека в бинарнике.        |
-| 3  | **Final везде**               | Constant Folding (вычисления на этапе компиляции).    | Более компактный и предсказуемый код.                      |
-| 4  | **Смерть Рефлексии**          | Прямые вызовы методов без поиска в рантайме.          | **Критично:** Избавляет от громоздких reflect-config.json. |
-| 5  | **Короткие методы**           | Гарантированное встраивание (inlining).               | Оптимизация размера исполняемого файла.                    |
-| 6  | **Преаллокация**              | Меньше пауз Garbage Collector на "переезды" массивов. | Снижение пикового потребления RAM.                         |
-| 7  | **Long вместо BigDecimal**    | Работа на регистрах CPU без аллокаций в куче.         | Радикальное уменьшение объёма живых объектов.              |
-| 8  | **Минимум прокси**            | Прозрачный граф вызовов без интерцепторов.            | Меньше динамической генерации байт-кода.                   |
-| 9  | **Чёткие Generics**           | Отказ от лишних проверок типов (`checkcast`).         | Упрощение статической типизации при сборке.                |
-| 10 | **CodeGen вместо Reflection** | Скорость прямого присваивания a = b.                  | Нулевой оверхед: никакой магии в рантайме.                 |
-| 11 | **Scoped Values**             | Безопасная передача контекста в Virtual Threads.      | Стабильный Heap при миллионах потоков.                     |
-
-**Голос AOT (финальный аккорд):**
-
-> "Посмотрите на эту таблицу. Если ваш проект следует этим правилам, я соберу его в бинарник, который стартует за миллисекунды. Если нет – я сообщу вам о каждой "грязной" рефлексии или прокси, либо на этапе компиляции, либо прямо в лоб во время работы.
-> Выбор за вами!"
+> **AOT’s Voice:** "Friends, I’ve seen it all. While you write code, I build its complete, immutable blueprint. If you follow these rules, my static analysis runs smoothly, and the resulting binary is surgically lightweight and fast.
+>
+> I will notify you of any ambiguity — be it forgotten reflection or an unoptimized dynamic proxy — either at build-time or with a clear failure during execution. My verdict is simple: **write transparently, provide me with predictable signals, and I will make your Java faster and leaner than ever before**."
